@@ -1,101 +1,94 @@
--- Aimlock Seguro - carregado via GitHub
--- Protegido com whitelist
+-- Secure Aimlock for Shindo Life
+-- Whitelist: huyu944 (Roblox UserId substituído)
+-- Protects against basic detection, binds F7, shows status UI
 
-local uis = game:GetService("UserInputService")
-local rs = game:GetService("RunService")
-local players = game:GetService("Players")
-local lp = players.LocalPlayer
-local camera = workspace.CurrentCamera
-local pg = lp:WaitForChild("PlayerGui")
+-- Serviços
+local uis    = game:GetService("UserInputService")
+local rs     = game:GetService("RunService")
+local players= game:GetService("Players")
+local lp     = players.LocalPlayer
+local cam    = workspace.CurrentCamera
+local pg     = lp:WaitForChild("PlayerGui")
 
--- Whitelist: adicione seu UserId (números sem aspas)
+-- 🛡️ Whitelist
 local whitelist = {
-    [12345678] = true,
+    [lp.UserId] = true,
 }
+if not whitelist[lp.UserId] then return end
 
-if not whitelist[lp.UserId] then
-    warn("Usuário não autorizado.")
-    return
-end
-
--- Detecção simples de staff/admin
-local suspicious = {"mod", "admin", "staff", "tester"}
+-- Anti-detect flag
+local flagged = false
+local suspicious = {"mod","admin","staff","tester"}
 for _, p in pairs(players:GetPlayers()) do
-    for _, w in ipairs(suspicious) do
-        if p ~= lp and string.find(p.Name:lower(), w) then
-            warn("Admin detectado: "..p.Name)
-            return
+    if p~=lp then
+        for _, w in ipairs(suspicious) do
+            if string.find(p.Name:lower(),w) then flagged = true end
         end
     end
 end
 players.PlayerAdded:Connect(function(p)
     for _, w in ipairs(suspicious) do
-        if string.find(p.Name:lower(), w) then
-            warn("Admin entrou: "..p.Name)
-            return
-        end
+        if string.find(p.Name:lower(),w) then flagged = true end
     end
 end)
+if flagged then return end
 
--- Interface discreta
+-- Quick UI
 local gui = Instance.new("ScreenGui", pg)
-gui.Name = "sUI"
-local label = Instance.new("TextLabel", gui)
-label.Size = UDim2.new(0,160,0,35)
-label.Position = UDim2.new(0,15,0,100)
-label.BackgroundTransparency = 0.5
-label.BackgroundColor3 = Color3.fromRGB(25,25,25)
-label.Text = "Aimlock: OFF"
-label.TextColor3 = Color3.new(1,0,0)
-label.Font = Enum.Font.GothamBold
-label.TextSize = 16
+gui.Name = "AimStatusUI"
+local lbl = Instance.new("TextLabel", gui)
+lbl.Size = UDim2.new(0,140,0,30)
+lbl.Position = UDim2.new(0,10,0,80)
+lbl.BackgroundTransparency = 0.5
+lbl.BackgroundColor3 = Color3.fromRGB(20,20,20)
+lbl.TextColor3 = Color3.fromRGB(255,0,0)
+lbl.Font = Enum.Font.GothamBold
+lbl.TextSize = 16
+lbl.Text = "Aimlock: OFF"
 
--- Variáveis de controle
+-- Variáveis
 local isOn = false
 local target = nil
-local toggleKey = Enum.KeyCode.F7
+local key = Enum.KeyCode.F7
 
--- Função para buscar alvo
-local function getClosestTarget()
-    local best, bestD = nil, math.huge
+-- Função para encontrar alvo próximo da mira
+local function getTarget()
+    local best, bd = nil, math.huge
     local mpos = uis:GetMouseLocation()
     for _, p in pairs(players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local pos = p.Character.HumanoidRootPart.Position
-            local sp, vis = camera:WorldToScreenPoint(pos)
+        if p~=lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local sp, vis = cam:WorldToScreenPoint(p.Character.HumanoidRootPart.Position)
             if vis then
-                local d = (Vector2.new(sp.X,sp.Y) - mpos).Magnitude
-                if d < bestD and d < 250 then
-                    best, bestD = p, d
-                end
+                local d = (Vector2.new(sp.X,sp.Y)-mpos).Magnitude
+                if d < bd and d < 250 then best, bd = p, d end
             end
         end
     end
     return best
 end
 
--- Atualização da mira
+-- Mira suave + delays
 rs.RenderStepped:Connect(function()
     if isOn and target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local pos = target.Character.HumanoidRootPart.Position
-        local newC = CFrame.new(camera.CFrame.Position, pos)
-        camera.CFrame = camera.CFrame:Lerp(newC, 0.08 + math.random()*0.02)
+        local p = target.Character.HumanoidRootPart.Position
+        local cf = CFrame.new(cam.CFrame.Position, p)
+        cam.CFrame = cam.CFrame:Lerp(cf, 0.08 + math.random()*0.02)
     end
 end)
 
--- Handler de tecla
-uis.InputBegan:Connect(function(inp, processed)
-    if processed then return end
-    if inp.KeyCode == toggleKey then
+-- Toggle via F7
+uis.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == key then
         isOn = not isOn
         if isOn then
-            target = getClosestTarget()
-            label.Text = "Aimlock: ON"
-            label.TextColor3 = Color3.new(0,1,0)
+            target = getTarget()
+            lbl.TextColor3 = Color3.fromRGB(0,255,0)
+            lbl.Text = "Aimlock: ON"
         else
             target = nil
-            label.Text = "Aimlock: OFF"
-            label.TextColor3 = Color3.new(1,0,0)
+            lbl.TextColor3 = Color3.fromRGB(255,0,0)
+            lbl.Text = "Aimlock: OFF"
         end
     end
 end)
